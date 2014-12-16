@@ -36,6 +36,7 @@ import org.apache.commons.csv.CSVRecord;
  * Future:
  * 		queues for multiple databases
  * 		Programmatically checks speed limit
+ * 		let's user set hour of download
  * 		handle interrupted downloads
  * 		creates log file of download completion
  * 		creates log file of errors and warnings
@@ -60,6 +61,9 @@ public class QuandlDownloader {
 	
 	// how dates are formatted
 	static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+	
+	// the hour of the day
+	private static int theHour = -1;
 
 	// time in milliseconds when the last download was initiated.
 	private static long downloadInitiatedTime = 0;
@@ -82,7 +86,7 @@ public class QuandlDownloader {
 			Date date = new Date();
 			Calendar calendar = GregorianCalendar.getInstance();
 			calendar.setTime(date); 
-			int theHour = calendar.get(Calendar.HOUR_OF_DAY);
+			theHour = calendar.get(Calendar.HOUR_OF_DAY);
 
 			// milliseconds since our last download
 			long now = System.currentTimeMillis();
@@ -212,7 +216,8 @@ public class QuandlDownloader {
 				
 				// if last day is not today, load from last day to today
 				Date today = new Date(System.currentTimeMillis());
-				if (!U.isSameDay(latestDay.date, today)) {
+				boolean lastDataPointIsNotToday = !U.isSameDay(latestDay.date, today);
+				if (lastDataPointIsNotToday && theHour >= Settings.refreshHour) {
 					String start = dateFormat.format(latestDay.date);
 					String stop = dateFormat.format(today);
 					// add new data to list
@@ -227,20 +232,21 @@ public class QuandlDownloader {
 						dataRows.put(dataRow.date, dataRow);
 						line = in.readLine();
 					}
-				}
+					
+					// sort list
+					dataRowList = new ArrayList<DataRow>(dataRows.values());
+					Collections.sort(dataRowList);
+					
+					// write header and sorted list to out file
+					PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
+					pw.println(header);
+					for (DataRow dataRow: dataRowList) {
+						pw.println(dataRow);
+					}
+					pw.flush();
+					pw.close();		
+				}	
 				
-				// sort list
-				dataRowList = new ArrayList<DataRow>(dataRows.values());
-				Collections.sort(dataRowList);
-				
-				// write header and sorted list to out file
-				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
-				pw.println(header);
-				for (DataRow dataRow: dataRowList) {
-					pw.println(dataRow);
-				}
-				pw.flush();
-				pw.close();	
 			}
 			
 		} catch (MalformedURLException e) {
@@ -306,5 +312,6 @@ public class QuandlDownloader {
 		U.downloadFileFromURL(url, constituentsFile);
 		return constituentsFile;
 	}
+	
 
 }
