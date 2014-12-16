@@ -11,7 +11,7 @@ public class Settings {
 	public static String apiKey = null;
 	
 	//speed limit -- calls per minute
-	public static Integer speedLimit = 200;
+	public static Integer speedLimit = 100;
 	
 	//the hour of the day (0 to 23) to begin the data refresh
 	public static Integer refreshHour = 18;
