@@ -1,0 +1,10 @@
+// NOTE:  make copy and rename to "settings.txt"
+
+// SETTINGS FILE
+// tab separated key/value pairs
+
+// API key allowing access to data
+// sign up for API here: https://www.quandl.com/users/sign_up
+// then get api ("auth token") key here: https://www.quandl.com/account
+// get data license here:  https://www.quandl.com/subscribe/12910/35
+apiKey xxxxxxxx
