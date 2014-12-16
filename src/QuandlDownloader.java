@@ -117,10 +117,12 @@ public class QuandlDownloader {
 				
 				// delete data sets no longer in constituents file
 				File [] existingFiles = dbFolder.listFiles();
-				for (File dataFile: existingFiles) {
-					String name = U.getFileNameWithoutSuffix(dataFile);
-					if (constituentsHash.get(name) == null) {
-						dataFile.delete();
+				if (existingFiles != null) {
+					for (File dataFile: existingFiles) {
+						String name = U.getFileNameWithoutSuffix(dataFile);
+						if (constituentsHash.get(name) == null) {
+							dataFile.delete();
+						}
 					}
 				}
 
@@ -135,7 +137,7 @@ public class QuandlDownloader {
 					} else {
 						now = System.currentTimeMillis();
 						while (now < minuteEnd) {
-							U.sleep(1000);
+							U.sleep(SECOND);
 							now = System.currentTimeMillis();
 						}
 						minuteStart = System.currentTimeMillis();
@@ -144,6 +146,7 @@ public class QuandlDownloader {
 						
 					}
 				}
+				U.p("download complete");
 				
 				
 			} else {
@@ -161,22 +164,28 @@ public class QuandlDownloader {
 	 * @param constituent
 	 */
 	public static void download(String constituent) {
+		U.p("downloading " + constituent);
+		
 		File dbFolder = new File(downloadsFolder, dbName);
+		dbFolder.mkdirs();
 		File dataFile = new File(dbFolder, constituent + ".csv");
 		
+		
 		try {
-			PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 			String urlString = "http://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
 			
 			// if not exists, downloading full data
 			if (!dataFile.exists()) {
+				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 				URL url = new URL(urlString);
 				BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
 				String line = in.readLine();
-				while (in != null) {
+				while (line != null) {
 					pw.println(line);
 					line = in.readLine();
 				}
+				pw.flush();
+				pw.close();
 			
 			// else, downloading only data we need
 			} else {
@@ -210,8 +219,10 @@ public class QuandlDownloader {
 					urlString += "&trim_start=" + start + "&trim_end=" + stop; 
 					URL url = new URL(urlString);
 					BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+					// two readLine calls to skip the header
 					line = in.readLine();
-					while (in != null) {
+					line = in.readLine();
+					while (line != null) {
 						DataRow dataRow = new DataRow(line);
 						dataRows.put(dataRow.date, dataRow);
 						line = in.readLine();
@@ -223,14 +234,15 @@ public class QuandlDownloader {
 				Collections.sort(dataRowList);
 				
 				// write header and sorted list to out file
+				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 				pw.println(header);
 				for (DataRow dataRow: dataRowList) {
 					pw.println(dataRow);
 				}
-				
+				pw.flush();
+				pw.close();	
 			}
-			pw.flush();
-			pw.close();
+			
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -270,7 +282,11 @@ public class QuandlDownloader {
 			int rowIndex = 0;
 			for (CSVRecord record : records) {
 				//skipping the header row
-				if (rowIndex != 0) constituents.add(record.get(0));
+				if (rowIndex != 0) {
+					String constituent = record.get(0);
+					constituent = constituent.replace('.', '_');
+					constituents.add(constituent);
+				}
 				rowIndex++;
 			}
 			in.close();

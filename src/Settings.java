@@ -23,7 +23,7 @@ public class Settings {
 	
 	public static void load() {
 		
-		File settingsFile = new File("settings/settings.txt");
+		File settingsFile = new File("settings.txt");
 		if (!settingsFile.exists()) {
 			U.fail("no settings file found at: " + settingsFile.getPath());;
 		}
