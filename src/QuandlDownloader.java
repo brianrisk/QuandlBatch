@@ -58,10 +58,10 @@ public class QuandlDownloader {
 	private static final long SECOND = 1000;
 	private static final long MINUTE = 60 * SECOND;
 	private static final long HOUR = MINUTE * 60;
-	
+
 	// how dates are formatted
 	static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-	
+
 	// the hour of the day
 	private static int theHour = -1;
 
@@ -81,7 +81,7 @@ public class QuandlDownloader {
 
 		// loop forever
 		while (true) {
-			
+
 			// getting the current hour of the day
 			Date date = new Date();
 			Calendar calendar = GregorianCalendar.getInstance();
@@ -94,13 +94,13 @@ public class QuandlDownloader {
 
 			// making the boolean to perform download a bit easier to follow
 			boolean performDownload = false;
-			
+
 			// if it's 6PM and we haven't recently done a download
 			if (timeSinceLastDownload > HOUR && theHour == 18 ) performDownload = true;
-			
+
 			// if the program just started, perform a download
 			if (downloadInitiatedTime == 0) performDownload = true;
-			
+
 			// don't download on weekends
 			if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY) performDownload = false;
 			if (calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) performDownload = false;
@@ -118,7 +118,7 @@ public class QuandlDownloader {
 				for (String constituent: constituents) {
 					constituentsHash.put(constituent, constituent);
 				}
-				
+
 				// delete data sets no longer in constituents file
 				File [] existingFiles = dbFolder.listFiles();
 				if (existingFiles != null) {
@@ -147,20 +147,20 @@ public class QuandlDownloader {
 						minuteStart = System.currentTimeMillis();
 						minuteEnd = minuteStart + MINUTE;
 						minuteCount = 0;
-						
+
 					}
 				}
 				U.p("download complete");
-				
-				
+
+
 			} else {
 				// sleep one minute
 				U.sleep(MINUTE);
 			}
 		}
 	}
-	
-	
+
+
 	/**
 	 * fully download data sets that are not yet downloaded
 	 * for data sets that do exist, download only data needed and properly append
@@ -169,15 +169,15 @@ public class QuandlDownloader {
 	 */
 	public static void download(String constituent) {
 		U.p("downloading " + constituent);
-		
+
 		File dbFolder = new File(downloadsFolder, dbName);
 		dbFolder.mkdirs();
 		File dataFile = new File(dbFolder, constituent + ".csv");
-		
-		
+
+
 		try {
 			String urlString = "http://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
-			
+
 			// if not exists, downloading full data
 			if (!dataFile.exists()) {
 				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
@@ -190,73 +190,91 @@ public class QuandlDownloader {
 				}
 				pw.flush();
 				pw.close();
-			
-			// else, downloading only data we need
+
+				// else, downloading only data we need
 			} else {
 				// load existing file
 				BufferedReader br = new BufferedReader(new FileReader(dataFile));
-				
+
 				//read header
 				String header = br.readLine();
-				
+
 				// load data set
+				boolean successfullyLoadedData = true;
 				Hashtable<Date, DataRow> dataRows = new Hashtable<Date, DataRow> ();
 				String line = br.readLine();
 				while (line != null) {
-					DataRow dataRow = new DataRow(line);
-					dataRows.put(dataRow.date, dataRow);
+					try {
+						DataRow dataRow = new DataRow(line);
+						dataRows.put(dataRow.date, dataRow);
+					} catch (Exception e) {
+						successfullyLoadedData = false;
+						break;
+					}
 					line = br.readLine();
 				}
 				br.close();
-				
-				// find last day
-				ArrayList<DataRow> dataRowList = new ArrayList<DataRow>(dataRows.values());
-				Collections.sort(dataRowList);
-				DataRow latestDay = dataRowList.get(0);
-				
-				// if last day is not today, load from last day to today
-				Date today = new Date(System.currentTimeMillis());
-				boolean lastDataPointIsNotToday = !U.isSameDay(latestDay.date, today);
-				if (lastDataPointIsNotToday && theHour >= Settings.refreshHour) {
-					String start = dateFormat.format(latestDay.date);
-					String stop = dateFormat.format(today);
-					// add new data to list
-					urlString += "&trim_start=" + start + "&trim_end=" + stop; 
-					URL url = new URL(urlString);
-					BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
-					// two readLine calls to skip the header
-					line = in.readLine();
-					line = in.readLine();
-					while (line != null) {
-						DataRow dataRow = new DataRow(line);
-						dataRows.put(dataRow.date, dataRow);
-						line = in.readLine();
-					}
-					
-					// sort list
-					dataRowList = new ArrayList<DataRow>(dataRows.values());
+
+				if (dataRows.size() == 0) successfullyLoadedData = false;
+
+				if (successfullyLoadedData) {
+					// find last day
+					ArrayList<DataRow> dataRowList = new ArrayList<DataRow>(dataRows.values());
 					Collections.sort(dataRowList);
-					
-					// write header and sorted list to out file
-					PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
-					pw.println(header);
-					for (DataRow dataRow: dataRowList) {
-						pw.println(dataRow);
+					DataRow latestDay = dataRowList.get(0);
+
+					// if last day is not today, load from last day to today
+					Date today = new Date(System.currentTimeMillis());
+					boolean lastDataPointIsNotToday = !U.isSameDay(latestDay.date, today);
+					if (lastDataPointIsNotToday && theHour >= Settings.refreshHour) {
+						String start = dateFormat.format(latestDay.date);
+						String stop = dateFormat.format(today);
+						// add new data to list
+						urlString += "&trim_start=" + start + "&trim_end=" + stop; 
+						URL url = new URL(urlString);
+						BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+						// two readLine calls to skip the header
+						line = in.readLine();
+						line = in.readLine();
+						while (line != null) {
+							DataRow dataRow = new DataRow(line);
+							dataRows.put(dataRow.date, dataRow);
+							line = in.readLine();
+						}
+
+						// sort list
+						dataRowList = new ArrayList<DataRow>(dataRows.values());
+						Collections.sort(dataRowList);
+
+						// write header and sorted list to out file
+						PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
+						pw.println(header);
+						for (DataRow dataRow: dataRowList) {
+							pw.println(dataRow);
+						}
+						pw.flush();
+						pw.close();		
 					}
-					pw.flush();
-					pw.close();		
-				}	
-				
+					
+				}
+				// if data was not succesfully loaded
+				else {
+					// delete the file
+					dataFile.delete();
+					// re-call this method
+					download(constituent);
+				}
+
 			}
-			
+
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+
 	}
-	
+
 
 	/**
 	 * Load settings, set up folders
@@ -312,6 +330,6 @@ public class QuandlDownloader {
 		U.downloadFileFromURL(url, constituentsFile);
 		return constituentsFile;
 	}
-	
+
 
 }
