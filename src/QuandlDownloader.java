@@ -145,7 +145,7 @@ public class QuandlDownloader {
 							constituentsToRetry.add(constituent);
 						}
 					}
-					// retry the constituents that didn't work
+					// retry the constituents that didn't work the first time around
 					// if they don't work again, log it
 					for (String constituent: constituentsToRetry) {
 						int responseCode = download(constituent);		
@@ -162,11 +162,8 @@ public class QuandlDownloader {
 					errors.close();
 				} catch (IOException e) {
 					e.printStackTrace();
-				}
-				
+				}	
 				U.p("download complete");
-
-
 			} else {
 				// sleep one minute
 				U.sleep(MINUTE);
