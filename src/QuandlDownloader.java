@@ -24,13 +24,13 @@ import org.apache.commons.csv.CSVRecord;
 
 /**
  * Features:
- * 		regularly updates
- * 		only downloads the data that is new since the last last download
- * 		once per day downloads constituent lists to monitor added or removed constituents
+ *		daily updates data
+ *		only downloads the data that is new since the last last download
+ *		once per day downloads constituent lists to monitor added or removed constituents
  *		performs full download of newly added constituents
  *		removes data files that are no longer constituents
- * 		Programmatically checks speed limit
- * 		creates log file of non-200 response codes
+ *		Programmatically checks speed limit
+ *		creates log file of non-200 response codes
  *		immediately begins download when program launched
  *		handles interrupted downloads
  *		no downloads on weekends
@@ -145,6 +145,8 @@ public class QuandlDownloader {
 							constituentsToRetry.add(constituent);
 						}
 					}
+					// retry the constituents that didn't work
+					// if they don't work again, log it
 					for (String constituent: constituentsToRetry) {
 						int responseCode = download(constituent);		
 						// was downloading too quickly, pause for a bit and try again
