@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.DateFormat;
@@ -28,18 +29,17 @@ import org.apache.commons.csv.CSVRecord;
  * 		once per day downloads constituent lists to monitor added or removed constituents
  *		performs full download of newly added constituents
  *		removes data files that are no longer constituents
- * 		manages download speed limit (2000 calls / 10 minutes)
+ * 		Programmatically checks speed limit
+ * 		creates log file of non-200 response codes
  *		immediately begins download when program launched
+ *		handles interrupted downloads
  *		no downloads on weekends
  *		sleeps when not in use
  *
  * Future:
  * 		queues for multiple databases
- * 		Programmatically checks speed limit
  * 		let's user set hour of download
- * 		handle interrupted downloads
  * 		creates log file of download completion
- * 		creates log file of errors and warnings
  *
  * Notes:
  *		http code: 200 = OK, 429 = too fast
@@ -130,26 +130,38 @@ public class QuandlDownloader {
 					}
 				}
 
-				// download while keeping within speed limit
-				long minuteStart = System.currentTimeMillis();
-				long minuteEnd = minuteStart + MINUTE;
-				int minuteCount = 0;
-				for (String constituent: constituents) {
-					if (minuteCount < Settings.speedLimit) {
-						download(constituent);
-						minuteCount++;
-					} else {
-						now = System.currentTimeMillis();
-						while (now < minuteEnd) {
-							U.sleep(SECOND);
-							now = System.currentTimeMillis();
+				// download, monitor http response codes
+				try {
+					PrintWriter errors = new PrintWriter(new FileWriter("errors.txt"));
+					ArrayList<String> constituentsToRetry = new ArrayList<String>();
+					for (String constituent: constituents) {
+						int responseCode = download(constituent);		
+						// was downloading too quickly, pause for a bit and try again
+						while (responseCode == 429) {
+							responseCode = download(constituent);
+							U.sleep(10 * SECOND);
+						}		
+						if (responseCode != 200) {
+							constituentsToRetry.add(constituent);
 						}
-						minuteStart = System.currentTimeMillis();
-						minuteEnd = minuteStart + MINUTE;
-						minuteCount = 0;
-
 					}
+					for (String constituent: constituentsToRetry) {
+						int responseCode = download(constituent);		
+						// was downloading too quickly, pause for a bit and try again
+						while (responseCode == 429) {
+							responseCode = download(constituent);
+							U.sleep(10 * SECOND);
+						}		
+						if (responseCode != 200) {
+							errors.println(responseCode + "\t" + constituent);
+						}
+					}
+					errors.flush();
+					errors.close();
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
+				
 				U.p("download complete");
 
 
@@ -166,23 +178,28 @@ public class QuandlDownloader {
 	 * for data sets that do exist, download only data needed and properly append
 	 * 
 	 * @param constituent
+	 * @return http response code
 	 */
-	public static void download(String constituent) {
-		U.p("downloading " + constituent);
-
+	public static int download(String constituent) {
+		// the code we return
+		int responseCode = 0;
+		
+		// setting up output destinations
 		File dbFolder = new File(downloadsFolder, dbName);
 		dbFolder.mkdirs();
 		File dataFile = new File(dbFolder, constituent + ".csv");
-
 
 		try {
 			String urlString = "http://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
 
 			// if not exists, downloading full data
 			if (!dataFile.exists()) {
+				U.p("downloading " + constituent);
 				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 				URL url = new URL(urlString);
-				BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+				HttpURLConnection http = (HttpURLConnection)url.openConnection();
+				responseCode = http.getResponseCode();
+				BufferedReader in = new BufferedReader(new InputStreamReader(http.getInputStream()));
 				String line = in.readLine();
 				while (line != null) {
 					pw.println(line);
@@ -227,12 +244,15 @@ public class QuandlDownloader {
 					Date today = new Date(System.currentTimeMillis());
 					boolean lastDataPointIsNotToday = !U.isSameDay(latestDay.date, today);
 					if (lastDataPointIsNotToday && theHour >= Settings.refreshHour) {
+						U.p("downloading " + constituent);
 						String start = dateFormat.format(latestDay.date);
 						String stop = dateFormat.format(today);
 						// add new data to list
 						urlString += "&trim_start=" + start + "&trim_end=" + stop; 
 						URL url = new URL(urlString);
-						BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+						HttpURLConnection http = (HttpURLConnection)url.openConnection();
+						responseCode = http.getResponseCode();
+						BufferedReader in = new BufferedReader(new InputStreamReader(http.getInputStream()));
 						// two readLine calls to skip the header
 						line = in.readLine();
 						line = in.readLine();
@@ -257,22 +277,21 @@ public class QuandlDownloader {
 					}
 					
 				}
-				// if data was not succesfully loaded
+				// if data was NOT successfully loaded
 				else {
 					// delete the file
 					dataFile.delete();
+					U.p("deleted potentially corrupted file for " + constituent);
 					// re-call this method
 					download(constituent);
 				}
-
 			}
-
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
+		return responseCode;
 	}
 
 
