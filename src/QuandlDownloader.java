@@ -154,7 +154,7 @@ public class QuandlDownloader {
 							responseCode = download(constituent);
 							U.sleep(10 * SECOND);
 						}		
-						if (responseCode != 200) {
+						if (responseCode != 200 && responseCode != 0) {
 							errors.println(responseCode + "\t" + constituent);
 						}
 					}
