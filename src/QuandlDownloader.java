@@ -247,13 +247,11 @@ public class QuandlDownloader {
 						String start = dateFormat.format(latestDay.date);
 						String stop = dateFormat.format(today);
 						// add new data to list
-						urlString += "&trim_start=" + start + "&trim_end=" + stop; 
+						urlString += "&trim_start=" + start + "&trim_end=" + stop + "&exclude_headers=true"; 
 						URL url = new URL(urlString);
 						HttpURLConnection http = (HttpURLConnection)url.openConnection();
 						responseCode = http.getResponseCode();
 						BufferedReader in = new BufferedReader(new InputStreamReader(http.getInputStream()));
-						// two readLine calls to skip the header
-						line = in.readLine();
 						line = in.readLine();
 						while (line != null) {
 							DataRow dataRow = new DataRow(line);
