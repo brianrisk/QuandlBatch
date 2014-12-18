@@ -189,7 +189,7 @@ public class QuandlDownloader {
 		File dataFile = new File(dbFolder, constituent + ".csv");
 
 		try {
-			String urlString = "http://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
+			String urlString = "https://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
 
 			// if not exists, downloading full data
 			if (!dataFile.exists()) {
@@ -310,6 +310,8 @@ public class QuandlDownloader {
 	 */
 	public static void initiate() {
 
+		downloadInitiatedTime = System.currentTimeMillis();
+		
 		// download our constituents list
 		String constituentsUrl = "http://static.quandl.com/end_of_day_us_stocks/ticker_list.csv";
 		File constituentsFile = downloadConstituents(constituentsUrl, dbName);
