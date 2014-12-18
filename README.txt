@@ -2,7 +2,7 @@ QuandlDownload
 
 Author:  Brian Risk
 Dontact: brian@geneffects.com
-License:  distributed under the MIT license
+License:  https://creativecommons.org/licenses/by/3.0/us/
 
 WHAT IT DOES
 	QuandlDownload is a bulk download utility for Quandl Data.
