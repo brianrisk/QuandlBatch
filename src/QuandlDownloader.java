@@ -78,6 +78,8 @@ public class QuandlDownloader {
 	private static File partialsFolder;
 
 	public static void main(String [] args) {
+		
+		U.p("Welcome to QuandlDownloader");
 
 		init();
 
