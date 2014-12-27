@@ -99,7 +99,7 @@ public class QuandlDownloader {
 
 			// if it's 6PM and we haven't recently done a download
 			if (timeSinceLastDownload > HOUR && theHour == 18 ) performDownload = true;
-			
+
 			// if it's been more than a day since the download
 			if (timeSinceLastDownload > DAY) performDownload = true;
 
@@ -134,21 +134,40 @@ public class QuandlDownloader {
 						}
 					}
 				}
-				
-				// download daily update file
+
+				// download daily update file (partials)
 				String partialUrl = "http://quandl.com/api/v3/databases/EOD/download?download_type=partial&auth_token=" + Settings.apiKey;
 				File partialFile = new File(partialsFolder, dbName + ".csv");
 				U.downloadFileFromURL(partialUrl, partialFile);
 
 				// download, monitor http response codes
 				try {
+
+					// load the updates into hashtable
+					Hashtable<String, StockDay> partials = new Hashtable<String, StockDay>();
+					BufferedReader partialReader = new BufferedReader(new FileReader(partialFile));
+					String partialLine = partialReader.readLine();
+					partialLine = partialReader.readLine();
+					while (partialLine != null) {
+						int firstComma = partialLine.indexOf(',');
+						String constituent = partialLine.substring(0, firstComma);
+						String partialData = partialLine.substring(firstComma + 1);
+						partials.put(constituent, new StockDay(partialData));
+						partialLine = partialReader.readLine();
+					}
+					partialReader.close();
+
+					// error log file
 					PrintWriter errors = new PrintWriter(new FileWriter("errors.txt"));
+
+					// this list will hold constituents that encountered errors
 					ArrayList<String> constituentsToRetry = new ArrayList<String>();
 					for (String constituent: constituents) {
-						int responseCode = download(constituent);		
+						StockDay latest = partials.get(constituent);
+						int responseCode = download(constituent, latest);		
 						// was downloading too quickly, pause for a bit and try again
 						while (responseCode == 429) {
-							responseCode = download(constituent);
+							responseCode = download(constituent, latest);
 							U.sleep(10 * SECOND);
 						}		
 						if (responseCode != 200) {
@@ -158,10 +177,11 @@ public class QuandlDownloader {
 					// retry the constituents that didn't work the first time around
 					// if they don't work again, log it
 					for (String constituent: constituentsToRetry) {
-						int responseCode = download(constituent);		
+						StockDay latest = partials.get(constituent);
+						int responseCode = download(constituent, latest);		
 						// was downloading too quickly, pause for a bit and try again
 						while (responseCode == 429) {
-							responseCode = download(constituent);
+							responseCode = download(constituent, latest);
 							U.sleep(10 * SECOND);
 						}		
 						if (responseCode != 200 && responseCode != 0) {
@@ -189,10 +209,10 @@ public class QuandlDownloader {
 	 * @param constituent
 	 * @return http response code
 	 */
-	public static int download(String constituent) {
+	public static int download(String constituent, StockDay latest) {
 		// the code we return
 		int responseCode = 0;
-		
+
 		// setting up output destinations
 		File dbFolder = new File(downloadsFolder, dbName);
 		dbFolder.mkdirs();
@@ -217,7 +237,7 @@ public class QuandlDownloader {
 				pw.flush();
 				pw.close();
 
-				
+
 			} 
 			// else, downloading only data we need
 			else {
@@ -284,7 +304,7 @@ public class QuandlDownloader {
 						pw.flush();
 						pw.close();		
 					}
-					
+
 				}
 				// if data was NOT successfully loaded
 				else {
@@ -326,7 +346,7 @@ public class QuandlDownloader {
 	public static void initiate() {
 
 		downloadInitiatedTime = System.currentTimeMillis();
-		
+
 		// download our constituents list
 		String constituentsUrl = "http://static.quandl.com/end_of_day_us_stocks/ticker_list.csv";
 		File constituentsFile = new File(constituentsFolder, dbName + ".csv");
