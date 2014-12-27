@@ -58,6 +58,7 @@ public class QuandlDownloader {
 	private static final long SECOND = 1000;
 	private static final long MINUTE = 60 * SECOND;
 	private static final long HOUR = MINUTE * 60;
+	private static final long DAY = HOUR * 24;
 
 	// how dates are formatted
 	static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -73,7 +74,8 @@ public class QuandlDownloader {
 
 	// storage locations
 	private static File downloadsFolder;
-	private static File constituentsFolder; 
+	private static File constituentsFolder;
+	private static File partialsFolder;
 
 	public static void main(String [] args) {
 
@@ -97,6 +99,9 @@ public class QuandlDownloader {
 
 			// if it's 6PM and we haven't recently done a download
 			if (timeSinceLastDownload > HOUR && theHour == 18 ) performDownload = true;
+			
+			// if it's been more than a day since the download
+			if (timeSinceLastDownload > DAY) performDownload = true;
 
 			// if the program just started, perform a download
 			if (downloadInitiatedTime == 0) performDownload = true;
@@ -129,6 +134,11 @@ public class QuandlDownloader {
 						}
 					}
 				}
+				
+				// download daily update file
+				String partialUrl = "http://quandl.com/api/v3/databases/EOD/download?download_type=partial&auth_token=" + Settings.apiKey;
+				File partialFile = new File(partialsFolder, dbName + ".csv");
+				U.downloadFileFromURL(partialUrl, partialFile);
 
 				// download, monitor http response codes
 				try {
@@ -207,8 +217,10 @@ public class QuandlDownloader {
 				pw.flush();
 				pw.close();
 
-				// else, downloading only data we need
-			} else {
+				
+			} 
+			// else, downloading only data we need
+			else {
 				// load existing file
 				BufferedReader br = new BufferedReader(new FileReader(dataFile));
 
@@ -217,12 +229,12 @@ public class QuandlDownloader {
 
 				// load data set
 				boolean successfullyLoadedData = true;
-				Hashtable<Date, DataRow> dataRows = new Hashtable<Date, DataRow> ();
+				Hashtable<Date, StockDay> StockDays = new Hashtable<Date, StockDay> ();
 				String line = br.readLine();
 				while (line != null) {
 					try {
-						DataRow dataRow = new DataRow(line);
-						dataRows.put(dataRow.date, dataRow);
+						StockDay StockDay = new StockDay(line);
+						StockDays.put(StockDay.date, StockDay);
 					} catch (Exception e) {
 						successfullyLoadedData = false;
 						break;
@@ -231,13 +243,13 @@ public class QuandlDownloader {
 				}
 				br.close();
 
-				if (dataRows.size() == 0) successfullyLoadedData = false;
+				if (StockDays.size() == 0) successfullyLoadedData = false;
 
 				if (successfullyLoadedData) {
 					// find last day
-					ArrayList<DataRow> dataRowList = new ArrayList<DataRow>(dataRows.values());
-					Collections.sort(dataRowList);
-					DataRow latestDay = dataRowList.get(0);
+					ArrayList<StockDay> StockDayList = new ArrayList<StockDay>(StockDays.values());
+					Collections.sort(StockDayList);
+					StockDay latestDay = StockDayList.get(0);
 
 					// if last day is not today, load from last day to today
 					Date today = new Date(System.currentTimeMillis());
@@ -254,20 +266,20 @@ public class QuandlDownloader {
 						BufferedReader in = new BufferedReader(new InputStreamReader(http.getInputStream()));
 						line = in.readLine();
 						while (line != null) {
-							DataRow dataRow = new DataRow(line);
-							dataRows.put(dataRow.date, dataRow);
+							StockDay StockDay = new StockDay(line);
+							StockDays.put(StockDay.date, StockDay);
 							line = in.readLine();
 						}
 
 						// sort list
-						dataRowList = new ArrayList<DataRow>(dataRows.values());
-						Collections.sort(dataRowList);
+						StockDayList = new ArrayList<StockDay>(StockDays.values());
+						Collections.sort(StockDayList);
 
 						// write header and sorted list to out file
 						PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 						pw.println(header);
-						for (DataRow dataRow: dataRowList) {
-							pw.println(dataRow);
+						for (StockDay StockDay: StockDayList) {
+							pw.println(StockDay);
 						}
 						pw.flush();
 						pw.close();		
@@ -298,8 +310,11 @@ public class QuandlDownloader {
 	public static void init() {
 		Settings.load();
 		downloadsFolder = new File("downloads");
+		downloadsFolder.mkdirs();
 		constituentsFolder = new File("constituents");
 		constituentsFolder.mkdirs();
+		partialsFolder = new File("partials");
+		partialsFolder.mkdirs();
 	}
 
 
@@ -314,7 +329,8 @@ public class QuandlDownloader {
 		
 		// download our constituents list
 		String constituentsUrl = "http://static.quandl.com/end_of_day_us_stocks/ticker_list.csv";
-		File constituentsFile = downloadConstituents(constituentsUrl, dbName);
+		File constituentsFile = new File(constituentsFolder, dbName + ".csv");
+		U.downloadFileFromURL(constituentsUrl, constituentsFile);
 
 		// load the constituents file
 		constituents =  new ArrayList<String>();
@@ -338,16 +354,7 @@ public class QuandlDownloader {
 	}
 
 
-	/**
-	 * Gets the components file for the S&P500
-	 * Other indices and full exchange listings can be found here:
-	 * https://www.quandl.com/resources/useful-lists
-	 */
-	public static File downloadConstituents(String url, String dbName) {
-		File constituentsFile = new File(constituentsFolder, dbName + ".csv");
-		U.downloadFileFromURL(url, constituentsFile);
-		return constituentsFile;
-	}
+
 
 
 }
