@@ -88,6 +88,7 @@ public class U {
         return file.getName().substring(0, file.getName().lastIndexOf('.'));
 	}
 	
+	
 	/**
 	 * returns true if two dates occur on same day
 	 * from: http://stackoverflow.com/questions/2517709/comparing-two-dates-to-see-if-they-are-in-the-same-day
@@ -103,6 +104,28 @@ public class U {
 		boolean sameDay = cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
 		                  cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
 		return sameDay;
+	}
+	
+	
+	/**
+	 * checks if a date is from yesterday
+	 * adapted from: http://stackoverflow.com/questions/3006150/how-to-check-if-a-date-object-equals-yesterday
+	 * @param date1
+	 * @param date2
+	 * @return
+	 */
+	public static boolean isYesterday(Date possibleYesterdayDate) {
+		
+		Calendar yesterday = Calendar.getInstance();
+		yesterday.add(Calendar.DAY_OF_YEAR, -1);
+
+		Calendar possibleYesterday = Calendar.getInstance();
+		possibleYesterday.setTime(possibleYesterdayDate);
+
+		boolean isYesterday = (yesterday.get(Calendar.YEAR) == possibleYesterday.get(Calendar.YEAR)
+		  && yesterday.get(Calendar.DAY_OF_YEAR) == possibleYesterday.get(Calendar.DAY_OF_YEAR));
+		  
+		return isYesterday;
 	}
 
 }

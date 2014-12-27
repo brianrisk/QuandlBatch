@@ -97,8 +97,8 @@ public class QuandlDownloader {
 			// making the boolean to perform download a bit easier to follow
 			boolean performDownload = false;
 
-			// if it's 6PM and we haven't recently done a download
-			if (timeSinceLastDownload > HOUR && theHour == 18 ) performDownload = true;
+			// if it's the hour for download (6PM) and we haven't recently done a download
+			if (timeSinceLastDownload > HOUR && theHour == Settings.refreshHour ) performDownload = true;
 
 			// if it's been more than a day since the download
 			if (timeSinceLastDownload > DAY) performDownload = true;
@@ -116,7 +116,7 @@ public class QuandlDownloader {
 
 				// folder for this database
 				File dbFolder = new File(downloadsFolder, dbName);
-				if (!dbFolder.exists()) dbFolder.mkdir();
+				dbFolder.mkdir();
 
 				// making a hashtable for easy reference
 				Hashtable<String, String> constituentsHash = new Hashtable<String, String>();
@@ -221,8 +221,8 @@ public class QuandlDownloader {
 		try {
 			String urlString = "https://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
 
-			// if not exists, downloading full data
-			if (!dataFile.exists()) {
+			// if not exists, or a split happened today, downloading full data
+			if (!dataFile.exists() || latest.split != 1) {
 				U.p("downloading " + constituent);
 				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 				URL url = new URL(urlString);
@@ -267,43 +267,66 @@ public class QuandlDownloader {
 
 				if (successfullyLoadedData) {
 					// find last day
-					ArrayList<StockDay> StockDayList = new ArrayList<StockDay>(StockDays.values());
-					Collections.sort(StockDayList);
-					StockDay latestDay = StockDayList.get(0);
+					ArrayList<StockDay> stockDayList = new ArrayList<StockDay>(StockDays.values());
+					Collections.sort(stockDayList);
+					StockDay latestDay = stockDayList.get(0);
 
-					// if last day is not today, load from last day to today
+					// if last day is not today, no loading needs to happen
 					Date today = new Date(System.currentTimeMillis());
 					boolean lastDataPointIsNotToday = !U.isSameDay(latestDay.date, today);
-					if (lastDataPointIsNotToday && theHour >= Settings.refreshHour) {
-						U.p("downloading " + constituent);
-						String start = dateFormat.format(latestDay.date);
-						String stop = dateFormat.format(today);
-						// add new data to list
-						urlString += "&trim_start=" + start + "&trim_end=" + stop + "&exclude_headers=true"; 
-						URL url = new URL(urlString);
-						HttpURLConnection http = (HttpURLConnection)url.openConnection();
-						responseCode = http.getResponseCode();
-						BufferedReader in = new BufferedReader(new InputStreamReader(http.getInputStream()));
-						line = in.readLine();
-						while (line != null) {
-							StockDay StockDay = new StockDay(line);
-							StockDays.put(StockDay.date, StockDay);
+
+
+					if (lastDataPointIsNotToday) {
+
+						// if last data day is Friday, and this is Monday
+						Calendar calendar = GregorianCalendar.getInstance();
+						calendar.setTime(latest.date); 
+						int lastDownloadDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);// == Calendar.FRIDAY) performDownload = false;
+						calendar.setTime(new Date());
+						int todayDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+						boolean isAfterWeekend = (todayDayOfWeek == Calendar.MONDAY && 
+								lastDownloadDayOfWeek == Calendar.FRIDAY);
+
+						// if last data day is yesterday
+						boolean lastDayIsYesterday = U.isYesterday(latest.date);
+
+						// checking if all we need to do is add in the data from the partial
+						if (isAfterWeekend || lastDayIsYesterday) {
+							StockDays.put(latest.date, latest);
+						}
+						// perform customized download of selected date range
+						else {
+							U.p("downloading " + constituent);
+							String start = dateFormat.format(latestDay.date);
+							String stop = dateFormat.format(today);
+							urlString += "&trim_start=" + start + "&trim_end=" + stop + "&exclude_headers=true"; 
+							URL url = new URL(urlString);
+							HttpURLConnection http = (HttpURLConnection)url.openConnection();
+							responseCode = http.getResponseCode();
+							// download, add new data to hashtable
+							BufferedReader in = new BufferedReader(new InputStreamReader(http.getInputStream()));
 							line = in.readLine();
+							while (line != null) {
+								StockDay stockDay = new StockDay(line);
+								StockDays.put(stockDay.date, stockDay);
+								line = in.readLine();
+							}
 						}
 
 						// sort list
-						StockDayList = new ArrayList<StockDay>(StockDays.values());
-						Collections.sort(StockDayList);
+						stockDayList = new ArrayList<StockDay>(StockDays.values());
+						Collections.sort(stockDayList);
 
 						// write header and sorted list to out file
 						PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 						pw.println(header);
-						for (StockDay StockDay: StockDayList) {
-							pw.println(StockDay);
+						for (StockDay stockDay: stockDayList) {
+							pw.println(stockDay);
 						}
 						pw.flush();
 						pw.close();		
 					}
+
 
 				}
 				// if data was NOT successfully loaded
@@ -312,7 +335,7 @@ public class QuandlDownloader {
 					dataFile.delete();
 					U.p("deleted potentially corrupted file for " + constituent);
 					// re-call this method
-					download(constituent);
+					download(constituent, latest);
 				}
 			}
 		} catch (MalformedURLException e) {
