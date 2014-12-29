@@ -156,7 +156,6 @@ public class QuandlDownloader {
 						int firstComma = partialLine.indexOf(',');
 						String constituent = partialLine.substring(0, firstComma);
 						String partialData = partialLine.substring(firstComma + 1);
-						U.p(partialLine);
 						StockDay stockDay = new StockDay(partialData);
 						if (stockDay.isValid) partials.put(constituent, stockDay);
 						partialLine = partialReader.readLine();
