@@ -139,8 +139,10 @@ public class QuandlDownloader {
 
 				// download daily update file (partials)
 				String partialUrl = "http://quandl.com/api/v3/databases/EOD/download?download_type=partial&auth_token=" + Settings.apiKey;
-				File partialFile = new File(partialsFolder, dbName + ".csv");
+				U.p(partialUrl);
+				File partialFile = new File(partialsFolder, dbName + ".zip");
 				U.downloadFileFromURL(partialUrl, partialFile);
+				U.unzip(partialFile, partialsFolder, dbName + ".csv");
 
 				// download, monitor http response codes
 				try {
