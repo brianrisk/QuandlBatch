@@ -139,24 +139,26 @@ public class QuandlDownloader {
 
 				// download daily update file (partials)
 				String partialUrl = "http://quandl.com/api/v3/databases/EOD/download?download_type=partial&auth_token=" + Settings.apiKey;
-				U.p(partialUrl);
-				File partialFile = new File(partialsFolder, dbName + ".zip");
-				U.downloadFileFromURL(partialUrl, partialFile);
-				U.unzip(partialFile, partialsFolder, dbName + ".csv");
+				File partialZip = new File(partialsFolder, dbName + ".zip");
+				U.downloadFileFromURL(partialUrl, partialZip);
+				File partialCsv = new File(partialsFolder, dbName + ".csv");
+				U.unzip(partialZip, partialsFolder, partialCsv.getName());
 
 				// download, monitor http response codes
 				try {
 
 					// load the updates into hashtable
 					Hashtable<String, StockDay> partials = new Hashtable<String, StockDay>();
-					BufferedReader partialReader = new BufferedReader(new FileReader(partialFile));
+					BufferedReader partialReader = new BufferedReader(new FileReader(partialCsv));
 					String partialLine = partialReader.readLine();
 					partialLine = partialReader.readLine();
 					while (partialLine != null) {
 						int firstComma = partialLine.indexOf(',');
 						String constituent = partialLine.substring(0, firstComma);
 						String partialData = partialLine.substring(firstComma + 1);
-						partials.put(constituent, new StockDay(partialData));
+						U.p(partialLine);
+						StockDay stockDay = new StockDay(partialData);
+						if (stockDay.isValid) partials.put(constituent, stockDay);
 						partialLine = partialReader.readLine();
 					}
 					partialReader.close();
@@ -226,7 +228,7 @@ public class QuandlDownloader {
 			String urlString = "https://www.quandl.com/api/v1/datasets/" + dbName + "/" + constituent + ".csv?auth_token=" + Settings.apiKey;
 
 			// if not exists, or a split happened today, downloading full data
-			if (!dataFile.exists() || latest.split != 1) {
+			if (!dataFile.exists() || (latest != null && latest.split != 1)) {
 				U.p("downloading " + constituent);
 				PrintWriter pw = new PrintWriter(new FileWriter(dataFile));
 				URL url = new URL(urlString);
@@ -283,19 +285,22 @@ public class QuandlDownloader {
 					if (lastDataPointIsNotToday) {
 
 						// if last data day is Friday, and this is Monday
-						Calendar calendar = GregorianCalendar.getInstance();
-						calendar.setTime(latest.date); 
-						int lastDownloadDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);// == Calendar.FRIDAY) performDownload = false;
-						calendar.setTime(new Date());
-						int todayDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-						boolean isAfterWeekend = (todayDayOfWeek == Calendar.MONDAY && 
-								lastDownloadDayOfWeek == Calendar.FRIDAY);
+						boolean isAfterWeekend = false;
+						if (latest != null) {
+							Calendar calendar = GregorianCalendar.getInstance();
+							calendar.setTime(latest.date); 
+							int lastDownloadDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+							calendar.setTime(new Date());
+							int todayDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+							isAfterWeekend = (todayDayOfWeek == Calendar.MONDAY && lastDownloadDayOfWeek == Calendar.FRIDAY);
+						}
 
 						// if last data day is yesterday
-						boolean lastDayIsYesterday = U.isYesterday(latest.date);
+						boolean lastDayIsYesterday = false;
+						if (latest != null) lastDayIsYesterday = U.isYesterday(latest.date);
 
 						// checking if all we need to do is add in the data from the partial
-						if (isAfterWeekend || lastDayIsYesterday) {
+						if ((latest != null) && (isAfterWeekend || lastDayIsYesterday)) {
 							StockDays.put(latest.date, latest);
 						}
 						// perform customized download of selected date range
