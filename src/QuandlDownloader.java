@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -78,7 +79,7 @@ public class QuandlDownloader {
 	private static File partialsFolder;
 
 	public static void main(String [] args) {
-		
+
 		U.p("Welcome to QuandlDownloader");
 
 		init();
@@ -257,14 +258,14 @@ public class QuandlDownloader {
 				Hashtable<Date, StockDay> StockDays = new Hashtable<Date, StockDay> ();
 				String line = br.readLine();
 				while (line != null) {
-					try {
-						StockDay StockDay = new StockDay(line);
-						StockDays.put(StockDay.date, StockDay);
-					} catch (Exception e) {
+					StockDay stockDay = new StockDay(line);
+					if (stockDay.isValid) {
+						StockDays.put(stockDay.date, stockDay);
+						line = br.readLine();
+					} else {
 						successfullyLoadedData = false;
 						break;
 					}
-					line = br.readLine();
 				}
 				br.close();
 
@@ -316,7 +317,7 @@ public class QuandlDownloader {
 							line = in.readLine();
 							while (line != null) {
 								StockDay stockDay = new StockDay(line);
-								StockDays.put(stockDay.date, stockDay);
+								if (stockDay.isValid) StockDays.put(stockDay.date, stockDay);
 								line = in.readLine();
 							}
 						}

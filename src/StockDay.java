@@ -46,21 +46,25 @@ public class StockDay implements Comparable<StockDay>{
 				try {
 					date = dateFormat.parse(chunks[0]);
 				} catch (ParseException e) {
-					e.printStackTrace();
+					isValid = false;
 				}
 
-				open = Double.parseDouble(chunks[1]);
-				high = Double.parseDouble(chunks[2]);
-				low = Double.parseDouble(chunks[3]);
-				close = Double.parseDouble(chunks[4]);
-				volume = Double.parseDouble(chunks[5]);
-				dividend = Double.parseDouble(chunks[6]);
-				split = Double.parseDouble(chunks[7]);
-				adj_open = Double.parseDouble(chunks[8]);
-				adj_high = Double.parseDouble(chunks[9]);
-				adj_low = Double.parseDouble(chunks[10]);
-				adj_close = Double.parseDouble(chunks[11]);
-				adj_volume = Double.parseDouble(chunks[12]);
+				try {
+					open = Double.parseDouble(chunks[1]);
+					high = Double.parseDouble(chunks[2]);
+					low = Double.parseDouble(chunks[3]);
+					close = Double.parseDouble(chunks[4]);
+					volume = Double.parseDouble(chunks[5]);
+					dividend = Double.parseDouble(chunks[6]);
+					split = Double.parseDouble(chunks[7]);
+					adj_open = Double.parseDouble(chunks[8]);
+					adj_high = Double.parseDouble(chunks[9]);
+					adj_low = Double.parseDouble(chunks[10]);
+					adj_close = Double.parseDouble(chunks[11]);
+					adj_volume = Double.parseDouble(chunks[12]);
+				} catch (NumberFormatException nfe){
+					isValid = false;
+				}
 			}
 		} else {
 			isValid = false;
