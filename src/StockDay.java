@@ -16,14 +16,14 @@ public class StockDay implements Comparable<StockDay>{
 	double high;
 	double low;
 	double close;
-	double volume;
+	double volume = 0;
 	double dividend;
 	double split;
 	double adj_open;
 	double adj_high;
 	double adj_low;
 	double adj_close;
-	double adj_volume;
+	double adj_volume = 0;
 
 	/**
 	 * values based on content of line taken from EOD csv file
@@ -39,14 +39,14 @@ public class StockDay implements Comparable<StockDay>{
 		if (chunks.length == 13) {
 
 			for (String chunk: chunks) {
-				if (chunk.equals("")) isValid = false;
+				//if (chunk.equals("")) isValid = false;
 			}
 
 			if (isValid) {
 				try {
 					date = dateFormat.parse(chunks[0]);
 				} catch (ParseException e) {
-					isValid = false;
+					isValid = false;	
 				}
 
 				try {
@@ -63,7 +63,7 @@ public class StockDay implements Comparable<StockDay>{
 					adj_close = Double.parseDouble(chunks[11]);
 					adj_volume = Double.parseDouble(chunks[12]);
 				} catch (NumberFormatException nfe){
-					isValid = false;
+					//isValid = false;
 				}
 			}
 		} else {
