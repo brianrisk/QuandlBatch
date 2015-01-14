@@ -24,6 +24,8 @@ import org.apache.commons.csv.CSVRecord;
 
 
 /**
+ * 
+ * 
  * Features:
  *		daily updates data
  *		only downloads the data that is new since the last last download
@@ -38,12 +40,14 @@ import org.apache.commons.csv.CSVRecord;
  *		sleeps when not in use
  *
  * Future:
+ * 		tracks data set download times and restarts if taking too long (e.g. download interrupted due to loss of internet or computer sleeping)
  * 		queues for multiple databases
  * 		let's user set hour of download
  * 		creates log file of download completion
+ * 		Work with any Quandl database
  *
  * Notes:
- *		http code: 200 = OK, 429 = too fast
+ *		http response code: 200 = OK, 429 = too fast
  *
  * @author brianrisk
  * @see <a href="http://github.com/brianrisk/QuandlDownloader">Github repository</a>
@@ -263,6 +267,7 @@ public class QuandlDownloader {
 						StockDays.put(stockDay.date, stockDay);
 						line = br.readLine();
 					} else {
+						U.p(line);
 						successfullyLoadedData = false;
 						break;
 					}
