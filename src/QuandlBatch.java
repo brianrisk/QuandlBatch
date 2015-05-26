@@ -54,7 +54,7 @@ import org.apache.commons.csv.CSVRecord;
  *
  */
 
-public class QuandlDownloader {
+public class QuandlBatch {
 
 	// focusing on EOD for this release
 	private static String dbName = "EOD";
